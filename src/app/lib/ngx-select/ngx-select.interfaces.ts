@@ -1,4 +1,4 @@
-import {NgxSelectOption} from './ngx-select.classes';
+import {NgxSelectOption, TSelectOption} from './ngx-select.classes';
 
 export type TNgxSelectOptionType = 'option' | 'optgroup';
 
@@ -21,7 +21,7 @@ export interface INgxSelectOptGroup {
 export interface INgxOptionNavigated {
     index: number;
     activeOption: NgxSelectOption;
-    filteredOptionList: NgxSelectOption[];
+    filteredOptionList: TSelectOption[];
 }
 
 export interface INgxSelectOptions {
@@ -37,11 +37,12 @@ export interface INgxSelectOptions {
     autoSelectSingleOption?: boolean;
     autoClearSearch?: boolean;
     noResultsFound?: string;
+    keepSelectedItems: boolean;
     size?: 'small' | 'default' | 'large';
     keyCodeToRemoveSelected?: string;
-    keyCodeToOptionsOpen?: string;
+    keyCodeToOptionsOpen?: string | string[];
     keyCodeToOptionsClose?: string;
-    keyCodeToOptionsSelect?: string;
+    keyCodeToOptionsSelect?: string | string[];
     keyCodeToNavigateFirst?: string;
     keyCodeToNavigatePrevious?: string;
     keyCodeToNavigateNext?: string;

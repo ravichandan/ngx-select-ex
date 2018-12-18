@@ -95,6 +95,7 @@ Any item can be `disabled` for prevent selection. For disable an item add the pr
 | [allowClear] | boolean | `false` |  Set to `true` to allow the selection to be cleared. This option only applies to single-value inputs |
 | [placeholder] | string | `''` |  Set to `true` Placeholder text to display when the element has no focus and selected items |
 | [noAutoComplete] | boolean | `false` |  Set to `true` Set to `true` to hide the search input. This option only applies to single-value inputs |
+| [keepSelectedItems] | boolean | `false` | Storing the selected items when the item list is changed |
 | [disabled] | boolean | `false` |  When `true`, it specifies that the component should be disabled |
 | [defaultValue] | any[] | `[]` |  Use to set default value |
 | autoSelectSingleOption | boolean | `false` | Auto select a non disabled single option |
@@ -113,6 +114,7 @@ Any item can be `disabled` for prevent selection. For disable an item add the pr
 | (select)  | Fired on an item selected by user. Returns value of the selected item. |
 | (remove)  | Fired on an item removed by user. Returns value of the removed item. |
 | (navigated)  | Fired on navigate by the dropdown list. Returns: `INgxOptionNavigated`. |
+| (selectionChanges)  | Fired on change selected options. Returns: `INgxSelectOption[]`. |
 
 **Warning!** Although the component contains the `select` and the `remove` events, the better solution is using `valueChanges` of the `FormControl`.
 
