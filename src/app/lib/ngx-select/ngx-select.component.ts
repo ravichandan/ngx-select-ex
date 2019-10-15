@@ -1,17 +1,20 @@
 import {
     AfterContentChecked, DoCheck, Input, Output, ViewChild,
     Component, ElementRef, EventEmitter, forwardRef, HostListener, IterableDiffer, IterableDiffers, ChangeDetectorRef, ContentChild,
-    TemplateRef, Optional, Inject, InjectionToken, ChangeDetectionStrategy
+    TemplateRef, Optional, Inject, InjectionToken, ChangeDetectionStrategy, HostBinding, Self
 } from '@angular/core';
-import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
-import {DomSanitizer, SafeHtml} from '@angular/platform-browser';
-import {Observable, Subject, BehaviorSubject, EMPTY, of, from, merge, combineLatest} from 'rxjs';
-import {tap, filter, map, share, flatMap, toArray, distinctUntilChanged} from 'rxjs/operators';
+
+import { MatFormFieldControl, ErrorStateMatcher } from '@angular/material';
+import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormControl, FormGroupDirective, NgForm, NgControl } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { Observable, Subject, BehaviorSubject, EMPTY, of, from, merge, combineLatest } from 'rxjs';
+import { tap, filter, map, share, flatMap, toArray, distinctUntilChanged } from 'rxjs/operators';
 import * as lodashNs from 'lodash';
 import * as escapeStringNs from 'escape-string-regexp';
-import {NgxSelectOptGroup, NgxSelectOption, TSelectOption} from './ngx-select.classes';
-import {NgxSelectOptionDirective, NgxSelectOptionNotFoundDirective, NgxSelectOptionSelectedDirective} from './ngx-templates.directive';
-import {INgxOptionNavigated, INgxSelectOption, INgxSelectOptions} from './ngx-select.interfaces';
+import { NgxSelectOptGroup, NgxSelectOption, TSelectOption } from './ngx-select.classes';
+import { NgxSelectOptionDirective, NgxSelectOptionNotFoundDirective, NgxSelectOptionSelectedDirective } from './ngx-templates.directive';
+import { INgxOptionNavigated, INgxSelectOption, INgxSelectOptions } from './ngx-select.interfaces';
 
 const _ = lodashNs;
 const escapeString = escapeStringNs;
@@ -30,6 +33,28 @@ enum ENavigation {
 function propertyExists(obj: Object, propertyName: string) {
     return propertyName in obj;
 }
+function anyPropertyExists(obj: Object, propertiesStr: string) {
+    return propertiesStr.split('|').some(s => s.trim() in obj);
+    // return propertyName in obj;
+}
+
+function getFirstProperty(obj: Object, propertiesStr: string) {
+    return propertiesStr.split('|').map(s => s.trim()).find(s => s in obj);
+    // return propertyName in obj;
+}
+
+
+export class NgSelectErrorStateMatcher {
+    constructor(private ngSelect: NgxSelectComponent) {
+    }
+    isErrorState(control: FormControl | null, form: FormGroupDirective | NgForm | null): boolean {
+        if (!control) {
+            return this.ngSelect.required && this.ngSelect.empty;
+        } else {
+            return !!(control && control.invalid && (control.touched || (form && form.submitted)));
+        }
+    }
+}
 
 @Component({
     selector: 'ngx-select',
@@ -38,13 +63,25 @@ function propertyExists(obj: Object, propertyName: string) {
     changeDetection: ChangeDetectionStrategy.OnPush,
     providers: [
         {
-            provide: NG_VALUE_ACCESSOR,
-            useExisting: forwardRef(() => NgxSelectComponent),
-            multi: true
+            provide: MatFormFieldControl,
+            useExisting: NgxSelectComponent
         }
     ]
 })
-export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccessor, DoCheck, AfterContentChecked {
+export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccessor, DoCheck, AfterContentChecked, MatFormFieldControl<any> {
+    static nextId = 0;
+    // @HostBinding() @Input() 
+    id = `ngx-select-${NgxSelectComponent.nextId++}`;
+    // @HostBinding('attr.aria-describedby')
+    describedBy = '';
+    // @Input() public ngControl: NgControl;
+    // ngControl = null;
+    errorState = false;
+    stateChanges = new Subject<void>();
+    focused = false;
+    private _required = false;
+    controlType = 'ngx-select';
+
     @Input() public items: any[];
     @Input() public optionValueField = 'id';
     @Input() public optionTextField = 'text';
@@ -87,9 +124,9 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     @ViewChild('input') protected inputElRef: ElementRef;
     @ViewChild('choiceMenu') protected choiceMenuElRef: ElementRef;
 
-    @ContentChild(NgxSelectOptionDirective, {read: TemplateRef}) templateOption: NgxSelectOptionDirective;
-    @ContentChild(NgxSelectOptionSelectedDirective, {read: TemplateRef}) templateSelectedOption: NgxSelectOptionSelectedDirective;
-    @ContentChild(NgxSelectOptionNotFoundDirective, {read: TemplateRef}) templateOptionNotFound: NgxSelectOptionNotFoundDirective;
+    @ContentChild(NgxSelectOptionDirective, { read: TemplateRef }) templateOption: NgxSelectOptionDirective;
+    @ContentChild(NgxSelectOptionSelectedDirective, { read: TemplateRef }) templateSelectedOption: NgxSelectOptionSelectedDirective;
+    @ContentChild(NgxSelectOptionNotFoundDirective, { read: TemplateRef }) templateOptionNotFound: NgxSelectOptionNotFoundDirective;
 
     public optionsOpened = false;
     public optionsFiltered: TSelectOption[];
@@ -112,6 +149,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
 
     private _focusToInput = false;
 
+
     /** @internal */
     public get inputText() {
         if (this.inputElRef && this.inputElRef.nativeElement) {
@@ -121,7 +159,19 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     }
 
     constructor(iterableDiffers: IterableDiffers, private sanitizer: DomSanitizer, private cd: ChangeDetectorRef,
-                @Inject(NGX_SELECT_OPTIONS) @Optional() defaultOptions: INgxSelectOptions) {
+        @Inject(NGX_SELECT_OPTIONS) @Optional() defaultOptions: INgxSelectOptions,
+        @Optional() private _parentForm: NgForm,
+        @Optional() private _parentFormGroup: FormGroupDirective,
+        @Optional() @Self() public ngControl: NgControl) {
+
+        // console.log('Contructing ngx-select-comp');
+
+        if (this.ngControl != null) {
+            // Setting the value accessor directly (instead of using
+            // the providers) to avoid running into a circular import.
+            this.ngControl.valueAccessor = this;
+        }
+
         Object.assign(this, defaultOptions);
 
         // DIFFERS
@@ -140,7 +190,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
                     (v: any[]) => cacheExternalValue = v === null ? [] : [].concat(v)
                 )),
                 this.subjOptionsSelected.pipe(map(
-                    (options: NgxSelectOption[]) => options.map((o: NgxSelectOption) => o.value)
+                    (options: NgxSelectOption[]) => options.map((o: NgxSelectOption) => o.data)
                 ))
             ),
             this.subjDefaultValue
@@ -185,7 +235,8 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
                 const optionsSelected = [];
 
                 actualValue.forEach((value: any) => {
-                    const selectedOption = optionsFlat.find((option: NgxSelectOption) => option.value === value);
+                    const selectedOption = optionsFlat.find((option: NgxSelectOption) =>
+                        value && (value[this.optionValueField] ? option.value === value[this.optionValueField] : option.value === value));
                     if (selectedOption) {
                         optionsSelected.push(selectedOption);
                     }
@@ -232,7 +283,44 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
             this.subjOptionsSelected.next(flatOptions);
             this.cd.markForCheck();
         });
+        // console.log('contructor of ngx-select is complete');
     }
+
+    @Input() errorStateMatcher: ErrorStateMatcher;
+    private _defaultErrorStateMatcher: ErrorStateMatcher = new NgSelectErrorStateMatcher(this);
+
+    setDescribedByIds(ids: string[]): void {
+        this.describedBy = ids.join(' ');
+    }
+
+    onContainerClick(event: MouseEvent): void {
+        const target = event.target as HTMLElement;
+        if (target.classList.contains('mat-form-field-infix')) {
+            this.focus.emit();
+            this.open.emit();
+        }
+    }
+
+    @HostBinding('class.floating')
+    get shouldLabelFloat() {
+        // console.log('showlabelFloat::: ' + (this.isFocused || !this.empty));
+        return !this.empty;
+    }
+
+    get empty(): boolean {
+        // console.log('In empty():: this.subjOptionsSelected.value =' +
+        //     this.subjOptionsSelected.value + ' stringified=' + JSON.stringify(this.subjOptionsSelected.value) + ' actualValue= '
+        //     + JSON.stringify(this.actualValue));
+        return this.subjOptionsSelected.value && this.subjOptionsSelected.value.length === 0;
+    }
+
+    @Input()
+    get required(): boolean { return this._required; }
+    set required(value: boolean) {
+        this._required = coerceBooleanProperty(value);
+        this.stateChanges.next();
+    }
+
 
     public setFormControlSize(otherClassNames: Object = {}, useFormControl: boolean = true) {
         const formControlExtraClasses = useFormControl ? {
@@ -243,7 +331,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     }
 
     public setBtnSize() {
-        return {'btn-sm': this.size === 'small', 'btn-lg': this.size === 'large'};
+        return { 'btn-sm': this.size === 'small', 'btn-lg': this.size === 'large' };
     }
 
     public get optionsSelected(): NgxSelectOption[] {
@@ -251,14 +339,27 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     }
 
     public mainClicked(event: INgxSelectComponentMouseEvent) {
-        event.clickedSelectComponent = this;
+        // console.log('In mainClicked() of custom ngx-select');
+        const ele = event.target as HTMLElement; let flag = false;
+        if (ele.className.includes('ngx-select__toggle') || ele.offsetParent.className.includes('ngx-select__toggle')) {
+            flag = true;
+            event.clickedSelectComponent = !this.optionsOpened ? this : undefined;
+        } else {
+            event.clickedSelectComponent = this;
+        }
         if (!this.isFocused) {
             this.isFocused = true;
             this.focus.emit();
         }
+        if (this.optionsOpened && flag) {
+            this.optionsClose();
+            this.cd.detectChanges(); // fix error because of delay between different events
+        } else {
+            this.optionsOpen();
+        }
     }
 
-    @HostListener('document:focusin', ['$event'])
+    // @HostListener('document:focusin', ['$event'])
     @HostListener('document:click', ['$event'])
     public documentClick(event: INgxSelectComponentMouseEvent) {
         if (event.clickedSelectComponent !== this) {
@@ -279,7 +380,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         }
 
         return from(this.optionsFiltered).pipe(
-            flatMap<TSelectOption, NgxSelectOption>((option: TSelectOption) =>
+            flatMap<TSelectOption, any>((option: TSelectOption) =>
                 option instanceof NgxSelectOption ? of(option) :
                     (option instanceof NgxSelectOptGroup ? from(option.optionsFiltered) : EMPTY)
             ),
@@ -292,7 +393,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     private navigateOption(navigation: ENavigation) {
         this.optionsFilteredFlat().pipe(
             map<NgxSelectOption[], INgxOptionNavigated>((options: NgxSelectOption[]) => {
-                const navigated: INgxOptionNavigated = {index: -1, activeOption: null, filteredOptionList: options};
+                const navigated: INgxOptionNavigated = { index: -1, activeOption: null, filteredOptionList: options };
                 let newActiveIdx;
                 switch (navigation) {
                     case ENavigation.first:
@@ -336,6 +437,20 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         const defVal = this.defaultValue ? [].concat(this.defaultValue) : [];
         if (this.defaultValueDiffer.diff(defVal)) {
             this.subjDefaultValue.next(defVal);
+        }
+        this.updateErrorState();
+    }
+
+    updateErrorState() {
+        const oldState = this.errorState;
+        const parent = this._parentFormGroup || this._parentForm;
+        const matcher = this.errorStateMatcher || this._defaultErrorStateMatcher;
+        const control = this.ngControl ? this.ngControl.control as FormControl : null;
+        const newState = matcher.isErrorState(control, parent);
+
+        if (newState !== oldState) {
+            this.errorState = newState;
+            this.stateChanges.next();
         }
     }
 
@@ -453,6 +568,7 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
 
     /** @internal */
     public optionSelect(option: NgxSelectOption, event: Event = null): void {
+        // console.log('Option selected in custom ngxselect');
         if (event) {
             event.preventDefault();
             event.stopPropagation();
@@ -557,6 +673,10 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         // }
         this.close.emit();
 
+        if (this.ngControl && this.ngControl.control) {
+            this.ngControl.control.markAsTouched();
+        }
+
         if (this.autoClearSearch && this.multiple && this.inputElRef) {
             this.inputElRef.nativeElement.value = null;
         }
@@ -594,7 +714,8 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         } else if (typeof data === 'object' && data !== null &&
             (propertyExists(data, this.optionValueField) || propertyExists(data, this.optionTextField))) {
             value = propertyExists(data, this.optionValueField) ? data[this.optionValueField] : data[this.optionTextField];
-            text = propertyExists(data, this.optionTextField) ? data[this.optionTextField] : data[this.optionValueField];
+            text = anyPropertyExists(data, this.optionTextField) ?
+                data[getFirstProperty(data, this.optionTextField)] : data[this.optionValueField];
             disabled = propertyExists(data, 'disabled') ? data['disabled'] : false;
         } else {
             return null;
@@ -624,4 +745,17 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
         this.disabled = isDisabled;
         this.cd.markForCheck();
     }
+
+    @Input()
+    get value(): any {
+        // console.log('Returning value = ' + JSON.stringify(this.subjOptionsSelected.value));
+        return this.subjOptionsSelected.value;
+    }
+    set value(v: any) {
+        // console.log('writing value = ' + JSON.stringify(v));
+        this.writeValue(v);
+
+    }
+    // private _value: any;
+
 }

@@ -1,37 +1,32 @@
-<div #main [tabindex]="disabled? -1: 0" class="ngx-select dropdown"
-     [ngClass]="setFormControlSize({
+<div #main [tabindex]="disabled? -1: 0" class="ngx-select dropdown" [ngClass]="setFormControlSize({
         'ngx-select_multiple form-control': multiple === true,
         'open show': optionsOpened && optionsFiltered.length
-     }, multiple === true)"
-     (click)="mainClicked($event)" (focusin)="mainClicked($event)"
-     (focus)="focusToInput()" (keydown)="inputKeyDown($event)">
+     }, multiple === true)" (click)="mainClicked($event)" (focus)="focusToInput()" (keydown)="inputKeyDown($event)">
     <div [ngClass]="{ 'ngx-select__disabled': disabled}"></div>
 
     <!-- single selected item -->
-    <div class="ngx-select__selected"
-         *ngIf="(multiple === false) && (!optionsOpened || noAutoComplete)">
-        <div class="ngx-select__toggle btn form-control" [ngClass]="setFormControlSize(setBtnSize())"
-             (click)="optionsOpen()">
+    <div class="ngx-select__selected" *ngIf="(multiple === false) ">
+        <div class="ngx-select__toggle btn form-control h-100" [ngClass]="setFormControlSize(setBtnSize())">
 
             <span *ngIf="!optionsSelected.length" class="ngx-select__placeholder text-muted">
                 <span [innerHtml]="placeholder"></span>
             </span>
-            <span *ngIf="optionsSelected.length"
-                  class="ngx-select__selected-single pull-left float-left"
-                  [ngClass]="{'ngx-select__allow-clear': allowClear}">
+            <span *ngIf="optionsSelected.length" class="ngx-select__selected-single w-100 pull-left float-left"
+                [ngClass]="{'ngx-select__allow-clear': allowClear}">
                 <ng-container [ngTemplateOutlet]="templateSelectedOption || defaultTemplateOption"
-                              [ngTemplateOutletContext]="{$implicit: optionsSelected[0], index: 0,
+                    [ngTemplateOutletContext]="{$implicit: optionsSelected[0], index: 0,
                                                           text: sanitize(optionsSelected[0].text)}">
                 </ng-container>
             </span>
-            <span class="ngx-select__toggle-buttons">
-                <a class="ngx-select__clear btn btn-sm btn-link" *ngIf="canClearNotMultiple()"
-                   [ngClass]="setBtnSize()"
-                   (click)="optionRemove(optionsSelected[0], $event)">
+            <span class="ngx-select__toggle-buttons"
+                [ngClass]="{'align-items-center': !empty, 'align-items-end': empty}">
+                <a class="ngx-select__clear btn btn-sm btn-link" *ngIf="canClearNotMultiple()" [ngClass]="setBtnSize()"
+                    (click)="optionRemove(optionsSelected[0], $event)">
                     <i class="ngx-select__clear-icon"></i>
                 </a>
-                <i class="dropdown-toggle"></i>
-                <i class="ngx-select__toggle-caret caret"></i>
+                <!-- <i class="dropdown-toggle"></i> -->
+                <i class="fas fa-angle-down"></i>
+                <!-- <i class="ngx-select__toggle-caret caret"></i> -->
             </span>
         </div>
     </div>
@@ -40,67 +35,83 @@
     <div class="ngx-select__selected" *ngIf="multiple === true">
         <span *ngFor="let option of optionsSelected; trackBy: trackByOption; let idx = index">
             <span tabindex="-1" [ngClass]="setBtnSize()"
-                  class="ngx-select__selected-plural btn btn-default btn-secondary btn-xs">
+                class="ngx-select__selected-plural btn btn-default btn-secondary btn-xs">
 
                 <ng-container [ngTemplateOutlet]="templateSelectedOption || defaultTemplateOption"
-                              [ngTemplateOutletContext]="{$implicit: option, index: idx, text: sanitize(option.text)}">
+                    [ngTemplateOutletContext]="{$implicit: option, index: idx, text: sanitize(option.text)}">
                 </ng-container>
 
                 <a class="ngx-select__clear btn btn-sm btn-link pull-right float-right" [ngClass]="setBtnSize()"
-                   (click)="optionRemove(option, $event)">
+                    (click)="optionRemove(option, $event)">
                     <i class="ngx-select__clear-icon"></i>
                 </a>
             </span>
         </span>
     </div>
 
-    <!-- live search an item from the list -->
-    <input #input type="text" class="ngx-select__search form-control" [ngClass]="setFormControlSize()"
-           *ngIf="checkInputVisibility()"
-           [tabindex]="multiple === false? -1: 0"
-           (keyup)="inputKeyUp(input.value, $event)"
-           [disabled]="disabled"
-           [placeholder]="optionsSelected.length? '': placeholder"
-           (click)="inputClick(input.value)"
-           autocomplete="off"
-           autocorrect="off"
-           autocapitalize="off"
-           spellcheck="false"
-           role="combobox">
+    <div *ngIf="optionsOpened"
+        class="position-absolute p-1 d-flex flex-column align-items-center w-100 elevate-10 bg-white shadow">
+        <!-- live search an item from the list -->
+        <!-- <div
+            class="form-control-iconified-wrapper form-control-iconified-wrapper-prefix form-control-iconified-wrapper-postfix">
+            <div class="form-control-iconified-icon-wrapper form-control-iconified-icon-wrapper-prefix">
+                $
+            </div>
+            <input type="text" class="form-control form-control-iconified" id="inputIconifiedTextPrefixPostfix">
+            <div class="form-control-iconified-icon-wrapper form-control-iconified-icon-wrapper-postfix">
+                <svg class="sui-icon form-control-iconified-icon" aria-hidden="true">
+                    <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../src/sui-icon/defs/svg/sprite.css.svg#close">
+                    </use>
+                </svg>
+            </div>
+        </div> -->
+        <div class="d-flex justify-content-center w-100 p-2" *ngIf="checkInputVisibility()">
+            <input #input type="text" class="ngx-select__search form-control text-body border-secondary bg-white"
+                [ngClass]="setFormControlSize()"  [tabindex]="multiple === false? -1: 0"
+                (keyup)="inputKeyUp(input.value, $event)" [disabled]="disabled" [placeholder]="placeholder"
+                (click)="inputClick(input.value)" autocomplete="off" autocorrect="off" autocapitalize="off"
+                spellcheck="false" role="combobox">
+        </div>
+        <!-- options template -->
+        <ul #choiceMenu role="menu" *ngIf="isFocused"
+            class="shadow-none ngx-select__choices dropdown-menu w-100 position-relative"
+            [class.show]="optionsOpened && subjOptions.value.length">
+            <li class="ngx-select__item-group" role="menuitem"
+                *ngFor="let opt of optionsFiltered; trackBy: trackByOption; let idxGroup=index; last as last">
+                <!-- <div class="divider dropdown-divider" *ngIf="opt.type === 'optgroup' && (idxGroup > 0)"></div> -->
+                <div class="px-2 pb-2 dropdown-header" *ngIf="opt.type === 'optgroup'">{{opt.label}}</div>
 
-    <!-- options template -->
-    <ul #choiceMenu role="menu" *ngIf="isFocused" class="ngx-select__choices dropdown-menu"
-        [class.show]="optionsOpened && subjOptions.value.length">
-        <li class="ngx-select__item-group" role="menuitem"
-            *ngFor="let opt of optionsFiltered; trackBy: trackByOption; let idxGroup=index">
-            <div class="divider dropdown-divider" *ngIf="opt.type === 'optgroup' && (idxGroup > 0)"></div>
-            <div class="dropdown-header" *ngIf="opt.type === 'optgroup'">{{opt.label}}</div>
-
-            <a href="#" #choiceItem class="ngx-select__item dropdown-item"
-               *ngFor="let option of (opt.optionsFiltered || [opt]); trackBy: trackByOption; let idxOption = index"
-               [ngClass]="{
+                <ng-container
+                    *ngFor="let option of (opt.optionsFiltered || [opt]); trackBy: trackByOption; let idxOption = index; first as elementFirst; last as elementLast">
+                    
+                  
+                    <a href="#" #choiceItem class="ngx-select__item dropdown-item" [ngClass]="{
                     'ngx-select__item_active active': option.active,
                     'ngx-select__item_disabled disabled': option.disabled
-               }"
-               (mouseenter)="onMouseEnter({
-                    activeOption: option,
-                    filteredOptionList: optionsFiltered,
-                    index: optionsFiltered.indexOf(option)
-               })"
-               (click)="optionSelect(option, $event)">
-                <ng-container [ngTemplateOutlet]="templateOption || defaultTemplateOption"
-                              [ngTemplateOutletContext]="{$implicit: option, text: option.highlightedText,
-                              index: idxGroup, subIndex: idxOption}"></ng-container>
-            </a>
-        </li>
-        <li class="ngx-select__item ngx-select__item_no-found dropdown-header" *ngIf="!optionsFiltered.length">
-            <ng-container [ngTemplateOutlet]="templateOptionNotFound || defaultTemplateOptionNotFound"
-                          [ngTemplateOutletContext]="{$implicit: inputText}"></ng-container>
-        </li>
-    </ul>
+                        }" (mouseenter)="onMouseEnter({
+                                activeOption: option,
+                                filteredOptionList: optionsFiltered,
+                                index: optionsFiltered.indexOf(option)
+                        })" (click)="optionSelect(option, $event)">
+                        <ng-container [ngTemplateOutlet]="templateOption || defaultTemplateOption"
+                            [ngTemplateOutletContext]="{$implicit: option, text: option.highlightedText,
+                              index: idxGroup, subIndex: idxOption, elementLast: elementLast}"></ng-container>
+                    </a>
+                    <div class="px-4" *ngIf="!elementLast">
+                        <div class="dropdown-divider" ></div>
+                    </div>
+                </ng-container>
+                <div class="dropdown-divider" *ngIf="!last"></div>
+            </li>
 
+            <li class="ngx-select__item ngx-select__item_no-found dropdown-header" *ngIf="!optionsFiltered.length">
+                <ng-container [ngTemplateOutlet]="templateOptionNotFound || defaultTemplateOptionNotFound"
+                    [ngTemplateOutletContext]="{$implicit: inputText}"></ng-container>
+            </li>
+        </ul>
+    </div>
     <!--Default templates-->
-    <ng-template #defaultTemplateOption let-text="text">
+    <ng-template #defaultTemplateOption let-text="text" >
         <span [innerHtml]="text"></span>
     </ng-template>
 
