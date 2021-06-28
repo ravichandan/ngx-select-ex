@@ -341,7 +341,17 @@ export class NgxSelectComponent implements INgxSelectOptions, ControlValueAccess
     public mainClicked(event: INgxSelectComponentMouseEvent) {
         // console.log('In mainClicked() of custom ngx-select');
         const ele = event.target as HTMLElement; let flag = false;
-        if (ele.className.includes('ngx-select__toggle') || ele.offsetParent.className.includes('ngx-select__toggle')) {
+        console.log('In mainClicked() of custom ngx-select', ele);
+
+        if ((ele.className && typeof ele.className.includes !== 'undefined' && ele.className.includes('ngx-select__toggle')) ||
+            (ele.offsetParent &&
+                typeof ele.offsetParent.className &&
+                typeof ele.offsetParent.className.includes !== 'undefined'  &&
+                ele.offsetParent.className.includes('ngx-select__toggle')) ||
+            (ele.parentElement &&
+                ele.parentElement.parentElement && ele.parentElement.parentElement.className &&
+                ele.parentElement.parentElement.className.includes &&
+                ele.parentElement.parentElement.className.includes('ngx-select__toggle'))) {
             flag = true;
             event.clickedSelectComponent = !this.optionsOpened ? this : undefined;
         } else {

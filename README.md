@@ -1,5 +1,5 @@
 # Native UI Select Angular component ([demo](https://optimistex.github.io/ngx-select-ex/))
-
+(This is a forked project of https://www.npmjs.com/package/ngx-select-ex)
 ## ngx-select-ex
 
 [![npm version](https://badge.fury.io/js/ngx-select-ex.svg)](http://badge.fury.io/js/ngx-select-ex)
